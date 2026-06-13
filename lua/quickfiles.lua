@@ -1,5 +1,7 @@
 local utils = require("utils")
 local StateManager = require("state_manager")
+local wk = require("which_key_ext")
+local config = require("config")
 
 ---@class Quickfiles
 --- @field state_manager StateManager
@@ -66,8 +68,10 @@ function Quickfiles:mark(bufnr, key)
 end
 
 -- Jumps to the file marked by the key provided by the user.
-function Quickfiles:jump()
-	local key = utils.read_key()
+function Quickfiles:jump(key)
+	if key == nil then
+		key = utils.read_key()
+	end
 
 	if key == "" or key == "<Esc>" then
 		return
@@ -96,4 +100,10 @@ function Quickfiles:list()
 end
 
 local quickfiles = Quickfiles:new()
+
+function Quickfiles.setup(partial_config)
+	local new_config = config.merge(partial_config)
+	wk:setup(new_config.which_key)
+end
+
 return quickfiles
