@@ -2,6 +2,7 @@ local utils = require("utils")
 local StateManager = require("state_manager")
 local wk = require("which_key_ext")
 local config = require("config")
+local snacks_ext = require("snacks_ext")
 
 ---@class Quickfiles
 --- @field state_manager StateManager
@@ -84,13 +85,37 @@ function Quickfiles:jump(key)
 		return
 	end
 
-	local bufnr = vim.fn.bufnr(file, true)
+	--[[ local bufnr = vim.fn.bufnr(file, true)
 	if not vim.api.nvim_buf_is_loaded(bufnr) then
-		vim.fn.bufload(file)
-		vim.api.nvim_set_option_value("buflisted", true, { buf = bufnr })
+		local group = vim.api.nvim_create_augroup("QuickfilesSwap", { clear = true })
+		vim.api.nvim_create_autocmd("SwapExists", {
+			group = group,
+			pattern = "*",
+			callback = function()
+				vim.v.swapchoice = "e" -- edit anyway (no recovery prompt)
+			end,
+		})
+		local ok, err = pcall(vim.fn.bufload, file)
+		vim.api.nvim_del_augroup_by_id(group)
+		if not ok then
+			vim.notify(("quickfiles: failed to load %s: %s"):format(file, err), vim.log.levels.ERROR)
+		else
+			vim.api.nvim_set_option_value("buflisted", true, { buf = bufnr })
+		end
 	end
 
-	vim.api.nvim_set_current_buf(bufnr)
+	vim.api.nvim_set_current_buf(bufnr) ]]
+	vim.schedule(function()
+		local bufnr = vim.fn.bufnr(file, true)
+		if not vim.api.nvim_buf_is_loaded(bufnr) then
+			local save = vim.o.shortmess
+			vim.opt.shortmess:append("A")
+			pcall(vim.fn.bufload, file)
+			vim.o.shortmess = save
+			vim.api.nvim_set_option_value("buflisted", true, { buf = bufnr })
+		end
+		vim.api.nvim_set_current_buf(bufnr)
+	end)
 end
 
 -- Returns a copy of the current state of the quickfiles marks.
@@ -99,8 +124,15 @@ function Quickfiles:list()
 	return vim.deepcopy(self.state_manager:get_state())
 end
 
+function Quickfiles:pick()
+	return snacks_ext.pick()
+end
+
 local quickfiles = Quickfiles:new()
 
+-- Sets up the quickfiles plugin with the provided configuration.
+-- Merges the provided configuration with the default configuration.
+---@param partial_config QuickfilesConfig.partial
 function Quickfiles.setup(partial_config)
 	local new_config = config.merge(partial_config)
 	wk:setup(new_config.which_key)
